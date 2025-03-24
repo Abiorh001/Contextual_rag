@@ -18,6 +18,7 @@ import cohere
 from datetime import datetime
 from elasticsearch_bm25 import ElasticsearchBM25
 from sentence_transformers import CrossEncoder
+from tqdm import tqdm
 logging.basicConfig(level=logging.INFO)
 load_dotenv()
 
@@ -146,7 +147,7 @@ class ContextualizedRAG:
             del doc["full_content"]
 
         # save the documents to a new csv
-        with open(f"{save_file_path}.csv", "w", encoding="utf-8") as f:
+        with open(save_file_path, "w", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(["doc_id", "title", "chunked_content", "contextualized_content", "chunk_id"])
             for doc in documents:
@@ -183,7 +184,7 @@ class ContextualizedRAG:
         self.esbm25.index_documents(documents)
         
         
-    def create_embeddings_store_temp(documents: List[Dict[str, Any]], embeddings_file_path: str):
+    def create_embeddings_store_temp(self, documents: List[Dict[str, Any]], embeddings_file_path: str):
         """
         Create embeddings with OpenAI and store them in a pickle file.
         """
@@ -198,7 +199,7 @@ class ContextualizedRAG:
             embeddings_results.append(embedding)
 
         # Save final embeddings   
-        with open(f"{embeddings_file_path}.pkl", "wb") as f:
+        with open(embeddings_file_path, "wb") as f:
             pickle.dump(embeddings_results, f)
         print(f"\nCompleted embedding creation for {len(embeddings_results)} chunks")
     
@@ -213,8 +214,9 @@ class ContextualizedRAG:
         doc_ids = [doc["doc_id"] for doc in documents]
         titles = [doc["title"] for doc in documents]
         chunked_contents = [doc["chunked_content"] for doc in documents]
-        metadata = [{"title": title, "chunked_content": chunked_content} 
-                for title, chunked_content in zip(titles, chunked_contents)]
+        contextualized_contents = [doc["contextualized_content"] for doc in documents]
+        metadata = [{"title": title, "chunked_content": chunked_content, "contextualized_content": contextualized_content} 
+                for title, chunked_content, contextualized_content in zip(titles, chunked_contents, contextualized_contents)]
 
 
         # Delete existing collection if it exists
@@ -239,7 +241,7 @@ class ContextualizedRAG:
             # Add the batch to ChromaDB
             collection.add(
                 ids=doc_ids,
-                documents=combined_content,
+                documents=contextualized_contents,
                 metadatas=metadata,
                 embeddings=embeddings
             )
@@ -286,14 +288,13 @@ class ContextualizedRAG:
                 seen.add(content)
                 unique_hybrid_results.append((idx, content))
 
-        # Extract only the documents for Cohere Rerank
-        documents = [doc[1] for doc in unique_hybrid_results]
-        return documents
+        return unique_hybrid_results
 
     def custom_reranking(self, query: str, documents: List[Dict[str, Any]], top_n: int = 5):
-        if documents:
+        documents_list = [doc[1] for doc in documents]
+        if documents_list:
             # Get scores for all query-document pairs
-            scores = self.cross_encoder_model.predict([(query, doc) for doc in documents])
+            scores = self.cross_encoder_model.predict([(query, doc) for doc in documents_list])
             
             # Pair scores with their indices and sort
             scored_docs = list(enumerate(scores))
@@ -308,14 +309,24 @@ class ContextualizedRAG:
         return custom_reranked_results
 
     def cohere_reranking(self, query: str, documents: List[Dict[str, Any]], top_n: int = 5):
-        time.sleep(3)
-        
+        documents_list = [doc[1] for doc in documents]
+        if documents_list:
+            time.sleep(3)
+            
         response = self.cohere_client.rerank(
         model="rerank-v3.5",
         query=query,
-        documents=documents,
+        documents=documents_list,
         top_n=top_n,
         )
 
         cohere_reranked_results = [documents[item.index][1] for item in response.results]
-        return cohere_reranked_results
+        return cohere_reranked_results if cohere_reranked_results else []
+        
+
+    def deduplication(self, documents: List[Dict[str, Any]]):
+       result = set()
+       for doc in documents:
+           if doc not in result:
+               result.add(doc)
+       return list(result)

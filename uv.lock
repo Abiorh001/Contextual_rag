@@ -405,6 +405,7 @@ dependencies = [
     { name = "langchain" },
     { name = "openai" },
     { name = "sentence-transformers" },
+    { name = "tqdm" },
     { name = "voyageai" },
 ]
 
@@ -417,6 +418,7 @@ requires-dist = [
     { name = "langchain", specifier = ">=0.3.21" },
     { name = "openai", specifier = ">=1.68.2" },
     { name = "sentence-transformers", specifier = ">=3.4.1" },
+    { name = "tqdm", specifier = ">=4.67.1" },
     { name = "voyageai", specifier = ">=0.3.2" },
 ]
 

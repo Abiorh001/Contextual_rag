@@ -12,5 +12,6 @@ dependencies = [
     "langchain>=0.3.21",
     "openai>=1.68.2",
     "sentence-transformers>=3.4.1",
+    "tqdm>=4.67.1",
     "voyageai>=0.3.2",
 ]
