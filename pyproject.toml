@@ -1,0 +1,16 @@
+[project]
+name = "contextualized-rag"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "backoff>=2.2.1",
+    "chromadb>=0.6.3",
+    "cohere>=5.14.0",
+    "elasticsearch>=8.17.2",
+    "langchain>=0.3.21",
+    "openai>=1.68.2",
+    "sentence-transformers>=3.4.1",
+    "voyageai>=0.3.2",
+]
